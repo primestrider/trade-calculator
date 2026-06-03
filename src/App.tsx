@@ -21,7 +21,9 @@ function App() {
         <div className="px-3">
           <Separator />
         </div>
-        <CardContent>asd</CardContent>
+        <CardContent>
+          <SelectTicker></SelectTicker>
+        </CardContent>
       </Card>
     </main>
   );
