@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { BalanceInput } from "./components/BalanceInput";
 import { SelectTicker } from "./components/SelectTicker";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Separator } from "./components/ui/separator";
@@ -21,8 +22,9 @@ function App() {
         <div className="px-3">
           <Separator />
         </div>
-        <CardContent>
-          <SelectTicker></SelectTicker>
+        <CardContent className="space-y-6">
+          <BalanceInput />
+          <SelectTicker />
         </CardContent>
       </Card>
     </main>
