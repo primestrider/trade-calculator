@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -30,7 +31,15 @@ export const useTradeStore = create<TradeState>()(
       syncCurrentToTotal: () =>
         set((state) => ({ currentBalance: state.totalBalance })),
       syncTotalToCurrent: () =>
-        set((state) => ({ totalBalance: state.currentBalance })),
+        set((state) => {
+          if (state.isTotalLocked) {
+            toast("Total balance is locked", { position: "top-center" });
+            return state;
+          }
+          return {
+            totalBalance: state.currentBalance,
+          };
+        }),
     }),
     {
       name: "trade-store",

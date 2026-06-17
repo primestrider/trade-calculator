@@ -11,8 +11,10 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { formatRupiah, parseRupiahInput } from "@/lib/currency";
-import { cn } from "@/lib/utils";
+import { cn, formatPercentage } from "@/lib/utils";
 import { useTradeStore } from "@/store/trade.store";
+import { Card, CardContent, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
 
 type BalanceInputProps = {
   placeholder?: string;
@@ -118,6 +120,15 @@ export function BalanceInput({
   const syncCurrentToTotal = useTradeStore((state) => state.syncCurrentToTotal);
   const syncTotalToCurrent = useTradeStore((state) => state.syncTotalToCurrent);
 
+  const [maxRisk] = useState<number>(0.02);
+
+  const riskLevels = [0.02, 0.015, 0.01];
+
+  const riskPerTrades = riskLevels.map((risk) => ({
+    risk,
+    amount: currentBalance * risk,
+  }));
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -132,12 +143,12 @@ export function BalanceInput({
           max={max}
           endAddon={
             <Button
+              className="mr-1"
               type="button"
               variant="outline"
               size="xs"
               disabled={disabled}
-              onClick={syncCurrentToTotal}
-            >
+              onClick={syncTotalToCurrent}>
               <ArrowRight data-icon="inline-start" />
               To Total
             </Button>
@@ -163,12 +174,12 @@ export function BalanceInput({
                 title={
                   isTotalLocked ? "Unlock total balance to sync" : undefined
                 }
-                onClick={syncTotalToCurrent}
-              >
+                onClick={syncCurrentToTotal}>
                 <ArrowLeft data-icon="inline-start" />
                 To Current
               </InputGroupButton>
               <InputGroupButton
+                className="mr-1"
                 type="button"
                 size="icon-xs"
                 variant={isTotalLocked ? "secondary" : "ghost"}
@@ -177,14 +188,41 @@ export function BalanceInput({
                   isTotalLocked ? "Unlock total balance" : "Lock total balance"
                 }
                 aria-pressed={isTotalLocked}
-                onClick={toggleTotalLock}
-              >
+                onClick={toggleTotalLock}>
                 {isTotalLocked ? <Lock /> : <LockOpen />}
               </InputGroupButton>
             </InputGroupAddon>
           }
         />
       </div>
+
+      {/* RISK PER TRADE */}
+
+      {currentBalance > 0 && (
+        <Card>
+          <CardContent>
+            {" "}
+            <CardTitle className="flex flex-wrap items-center space-x-2">
+              <h2 className="text-sm font-bold">Risk per Trade</h2>
+              <Badge className="text-xs" variant="destructive">
+                Max Risk {formatPercentage(maxRisk)}
+              </Badge>
+            </CardTitle>
+            <div className="space-y-1">
+              {riskPerTrades.map((item) => (
+                <div
+                  key={item.risk}
+                  className="flex items-center justify-between text-sm">
+                  <span>{formatPercentage(item.risk)}</span>
+                  <span className="font-semibold">
+                    {formatRupiah(item.amount, true)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

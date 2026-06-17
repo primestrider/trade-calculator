@@ -3,6 +3,7 @@ import { BalanceInput } from "./components/BalanceInput";
 import { SelectTicker } from "./components/SelectTicker";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Separator } from "./components/ui/separator";
+import { Toaster } from "./components/ui/sonner";
 
 function App() {
   useEffect(() => {
@@ -27,6 +28,7 @@ function App() {
           <SelectTicker />
         </CardContent>
       </Card>
+      <Toaster></Toaster>
     </main>
   );
 }
