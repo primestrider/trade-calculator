@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Combobox,
   ComboboxContent,
@@ -11,13 +11,10 @@ import {
 } from "./ui/combobox";
 
 import indonesiaStocks from "../assets/indonesia_stocks.json";
-import {
-  formatChangePercent,
-  formatStockPrice,
-  getStockQuote,
-  type StockQuote,
-} from "@/lib/stock-quote";
-import { cn } from "@/lib/utils";
+
+// import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { searchStock } from "@/server/api";
 
 type IndonesiaStock = {
   symbol: string;
@@ -33,9 +30,6 @@ const formatStockLabel = (stock: IndonesiaStock) =>
 export function SelectTicker() {
   const [query, setQuery] = useState("");
   const [activeTicker, setActiveTicker] = useState<IndonesiaStock | null>(null);
-  const [quote, setQuote] = useState<StockQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const filteredStocks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,66 +47,44 @@ export function SelectTicker() {
         (stock) =>
           stock.symbol.toLowerCase().includes(q) ||
           stock.ticker.toLowerCase().includes(q) ||
-          stock.name.toLowerCase().includes(q)
+          stock.name.toLowerCase().includes(q),
       )
       .slice(0, 50);
   }, [query, activeTicker]);
 
-  useEffect(() => {
-    if (!activeTicker) {
-      setQuote(null);
-      setQuoteError(null);
-      setQuoteLoading(false);
-      return;
-    }
+  const {
+    data: stock,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+  } = useQuery({
+    queryKey: ["stocks", activeTicker?.symbol],
 
-    const controller = new AbortController();
-    const ticker = activeTicker.ticker;
+    enabled: !!activeTicker?.symbol,
 
-    async function loadQuote() {
-      setQuoteLoading(true);
-      setQuoteError(null);
-
-      try {
-        const data = await getStockQuote(ticker, controller.signal);
-
-        if (!controller.signal.aborted) {
-          setQuote(data);
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setQuote(null);
-          setQuoteError(
-            error instanceof Error ? error.message : "Failed to fetch price"
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setQuoteLoading(false);
-        }
-      }
-    }
-
-    void loadQuote();
-
-    return () => controller.abort();
-  }, [activeTicker]);
+    queryFn: () =>
+      searchStock({
+        keywords: activeTicker!.ticker,
+      }),
+  });
 
   return (
     <div className="space-y-4">
       <Combobox
         items={filteredStocks}
-        value={activeTicker?.ticker ?? ""}
+        value={activeTicker?.symbol ?? ""}
         onValueChange={(value) => {
           const stock =
-            listIndonesiaStocks.find((s) => s.ticker === value) ?? null;
+            listIndonesiaStocks.find((s) => s.symbol === value) ?? null;
 
           setActiveTicker(stock);
 
           if (stock) {
             setQuery(formatStockLabel(stock));
           }
-        }}>
+        }}
+      >
         <ComboboxInput
           placeholder="Search ticker..."
           value={query}
@@ -136,7 +108,7 @@ export function SelectTicker() {
 
           <ComboboxList>
             {(item: IndonesiaStock) => (
-              <ComboboxItem key={item.ticker} value={item.ticker}>
+              <ComboboxItem key={item.symbol} value={item.symbol}>
                 <div className="flex flex-col">
                   <span className="font-medium">{item.symbol}</span>
 
@@ -168,53 +140,73 @@ export function SelectTicker() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg bg-muted p-3">
+          <div className="mt-4 rounded-lg bg-muted p-4">
             <div className="text-xs font-medium text-muted-foreground">
-              Market Price
+              Stock Information
             </div>
 
-            {quoteLoading && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                Loading price...
+            {isLoading && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Loading stock data...
               </p>
             )}
 
-            {quoteError && (
-              <p className="mt-1 text-sm text-destructive">{quoteError}</p>
+            {isError && (
+              <p className="mt-2 text-sm text-destructive">
+                {(error as Error).message}
+              </p>
             )}
 
-            {!quoteLoading && !quoteError && quote?.price != null && (
-              <div className="mt-1 flex flex-wrap items-end gap-2">
-                <span className="text-2xl font-semibold">
-                  {formatStockPrice(quote.price, quote.currency)}
-                </span>
+            {!isLoading && !isError && !stock && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Stock data not found.
+              </p>
+            )}
 
-                {quote.changePercent != null && (
-                  <span
-                    className={cn(
-                      "text-sm font-medium",
-                      quote.changePercent > 0
-                        ? "text-green-500"
-                        : quote.changePercent < 0
-                          ? "text-red-500"
-                          : "text-muted-foreground"
-                    )}>
-                    {formatChangePercent(quote.changePercent)}
-                  </span>
+            {stock && (
+              <div className="mt-3 space-y-2 text-sm">
+                <div>
+                  <strong>Code:</strong> {stock.code}
+                </div>
+
+                <div>
+                  <strong>Company:</strong> {stock.name}
+                </div>
+
+                <div>
+                  <strong>Price:</strong> {stock.last.toLocaleString("id-ID")}
+                </div>
+
+                <div>
+                  <strong>PER:</strong> {stock.per.toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>PBR:</strong> {stock.pbr.toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>ROE:</strong> {(stock.roe * 100).toFixed(2)}%
+                </div>
+
+                <div>
+                  <strong>Market Cap:</strong>{" "}
+                  {stock.capitalization.toLocaleString("id-ID")}
+                </div>
+
+                <div>
+                  <strong>1 Year Return:</strong>{" "}
+                  {(stock.oneYear * 100).toFixed(2)}%
+                </div>
+
+                <div>
+                  <strong>YTD:</strong> {(stock.ytd * 100).toFixed(2)}%
+                </div>
+
+                {isFetching && (
+                  <p className="text-xs text-muted-foreground">Refreshing...</p>
                 )}
               </div>
-            )}
-
-            {!quoteLoading && !quoteError && quote?.price == null && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                Price unavailable.
-              </p>
-            )}
-
-            {quote?.marketState && !quoteLoading && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Market: {quote.marketState}
-              </p>
             )}
           </div>
         </div>
