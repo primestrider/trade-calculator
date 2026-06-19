@@ -2,17 +2,14 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, Lock, LockOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group";
-import { formatRupiah, parseRupiahInput } from "@/lib/currency";
-import { cn } from "@/lib/utils";
+
+import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
+import { formatRupiah } from "@/lib/currency";
+import { cn, formatPercentage } from "@/lib/utils";
 import { useTradeStore } from "@/store/trade.store";
+import { Card, CardContent, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { CurrencyInput } from "./CurrencyInput";
 
 type BalanceInputProps = {
   placeholder?: string;
@@ -21,86 +18,6 @@ type BalanceInputProps = {
   min?: number;
   max?: number;
 };
-
-type RupiahBalanceFieldProps = {
-  id: string;
-  label: string;
-  value: number;
-  onValueChange: (value: number) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  min?: number;
-  max?: number;
-  endAddon?: React.ReactNode;
-};
-
-function clampBalance(value: number, min?: number, max?: number) {
-  let next = value;
-
-  if (min !== undefined && next < min) {
-    next = min;
-  }
-
-  if (max !== undefined && next > max) {
-    next = max;
-  }
-
-  return next;
-}
-
-function RupiahBalanceField({
-  id,
-  label,
-  value,
-  onValueChange,
-  placeholder = "0",
-  disabled = false,
-  min = 0,
-  max,
-  endAddon,
-}: Readonly<RupiahBalanceFieldProps>) {
-  const [isFocused, setIsFocused] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const displayValue = isFocused ? draft : formatRupiah(value);
-
-  const handleChange = (input: string) => {
-    const parsed = clampBalance(parseRupiahInput(input), min, max);
-
-    setDraft(formatRupiah(parsed) || input.replace(/\D/g, ""));
-    onValueChange(parsed);
-  };
-
-  return (
-    <Field data-disabled={disabled || undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-
-      <InputGroup>
-        <InputGroupAddon align="inline-start">
-          <InputGroupText>Rp</InputGroupText>
-        </InputGroupAddon>
-
-        <InputGroupInput
-          id={id}
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder={placeholder}
-          disabled={disabled}
-          value={displayValue}
-          onChange={(event) => handleChange(event.target.value)}
-          onFocus={() => {
-            setIsFocused(true);
-            setDraft(formatRupiah(value));
-          }}
-          onBlur={() => setIsFocused(false)}
-        />
-
-        {endAddon}
-      </InputGroup>
-    </Field>
-  );
-}
 
 export function BalanceInput({
   placeholder = "0",
@@ -118,10 +35,19 @@ export function BalanceInput({
   const syncCurrentToTotal = useTradeStore((state) => state.syncCurrentToTotal);
   const syncTotalToCurrent = useTradeStore((state) => state.syncTotalToCurrent);
 
+  const [maxRisk] = useState<number>(0.02);
+
+  const riskLevels = [0.02, 0.015, 0.01];
+
+  const riskPerTrades = riskLevels.map((risk) => ({
+    risk,
+    amount: currentBalance * risk,
+  }));
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <RupiahBalanceField
+        <CurrencyInput
           id="current-balance"
           label="Current Balance"
           value={currentBalance}
@@ -132,19 +58,19 @@ export function BalanceInput({
           max={max}
           endAddon={
             <Button
+              className="mr-1"
               type="button"
               variant="outline"
               size="xs"
               disabled={disabled}
-              onClick={syncCurrentToTotal}
-            >
+              onClick={syncTotalToCurrent}>
               <ArrowRight data-icon="inline-start" />
               To Total
             </Button>
           }
         />
 
-        <RupiahBalanceField
+        <CurrencyInput
           id="total-balance"
           label="Total Balance"
           value={totalBalance}
@@ -163,12 +89,12 @@ export function BalanceInput({
                 title={
                   isTotalLocked ? "Unlock total balance to sync" : undefined
                 }
-                onClick={syncTotalToCurrent}
-              >
+                onClick={syncCurrentToTotal}>
                 <ArrowLeft data-icon="inline-start" />
                 To Current
               </InputGroupButton>
               <InputGroupButton
+                className="mr-1"
                 type="button"
                 size="icon-xs"
                 variant={isTotalLocked ? "secondary" : "ghost"}
@@ -177,14 +103,41 @@ export function BalanceInput({
                   isTotalLocked ? "Unlock total balance" : "Lock total balance"
                 }
                 aria-pressed={isTotalLocked}
-                onClick={toggleTotalLock}
-              >
+                onClick={toggleTotalLock}>
                 {isTotalLocked ? <Lock /> : <LockOpen />}
               </InputGroupButton>
             </InputGroupAddon>
           }
         />
       </div>
+
+      {/* RISK PER TRADE */}
+
+      {currentBalance > 0 && (
+        <Card>
+          <CardContent>
+            {" "}
+            <CardTitle className="flex flex-wrap items-center space-x-2">
+              <h2 className="text-sm font-bold">Risk per Trade</h2>
+              <Badge className="text-xs" variant="destructive">
+                Max Risk {formatPercentage(maxRisk)}
+              </Badge>
+            </CardTitle>
+            <div className="space-y-1">
+              {riskPerTrades.map((item) => (
+                <div
+                  key={item.risk}
+                  className="flex items-center justify-between text-sm">
+                  <span>{formatPercentage(item.risk)}</span>
+                  <span className="font-semibold">
+                    {formatRupiah(item.amount, true)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

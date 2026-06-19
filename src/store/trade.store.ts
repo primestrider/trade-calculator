@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -5,6 +6,8 @@ type TradeState = {
   currentBalance: number;
   totalBalance: number;
   isTotalLocked: boolean;
+  riskLevels: number[];
+
   setCurrentBalance: (balance: number) => void;
   setTotalBalance: (balance: number) => void;
   toggleTotalLock: () => void;
@@ -23,6 +26,10 @@ export const useTradeStore = create<TradeState>()(
       currentBalance: 0,
       totalBalance: 0,
       isTotalLocked: false,
+      riskLevels: [0.02, 0.015, 0.01],
+
+      entryInput: 0,
+      lossInput: 0,
       setCurrentBalance: (currentBalance) => set({ currentBalance }),
       setTotalBalance: (totalBalance) => set({ totalBalance }),
       toggleTotalLock: () =>
@@ -30,7 +37,15 @@ export const useTradeStore = create<TradeState>()(
       syncCurrentToTotal: () =>
         set((state) => ({ currentBalance: state.totalBalance })),
       syncTotalToCurrent: () =>
-        set((state) => ({ totalBalance: state.currentBalance })),
+        set((state) => {
+          if (state.isTotalLocked) {
+            toast("Total balance is locked", { position: "top-center" });
+            return state;
+          }
+          return {
+            totalBalance: state.currentBalance,
+          };
+        }),
     }),
     {
       name: "trade-store",
