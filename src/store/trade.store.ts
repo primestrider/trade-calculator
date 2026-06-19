@@ -6,6 +6,8 @@ type TradeState = {
   currentBalance: number;
   totalBalance: number;
   isTotalLocked: boolean;
+  riskLevels: number[];
+
   setCurrentBalance: (balance: number) => void;
   setTotalBalance: (balance: number) => void;
   toggleTotalLock: () => void;
@@ -24,6 +26,10 @@ export const useTradeStore = create<TradeState>()(
       currentBalance: 0,
       totalBalance: 0,
       isTotalLocked: false,
+      riskLevels: [0.02, 0.015, 0.01],
+
+      entryInput: 0,
+      lossInput: 0,
       setCurrentBalance: (currentBalance) => set({ currentBalance }),
       setTotalBalance: (totalBalance) => set({ totalBalance }),
       toggleTotalLock: () =>
