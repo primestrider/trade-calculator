@@ -3,73 +3,88 @@ export interface StockSearchParams {
   pageBegin?: number;
   pageLength?: number;
   sortField?: string;
-  sortOrder?: 'ASC' | 'DESC';
+  sortOrder?: "ASC" | "DESC";
 }
 
 export interface Stock {
-  id: number;
-  name: string;
-  code: string;
+  Id: number;
 
-  stockSubSectorId: number;
-  subSectorName: string;
+  Name: string;
+  Code: string;
 
-  stockSectorId: number;
-  sectorName: string;
+  StockSubSectorId: number;
+  SubSectorName: string;
 
-  newSubIndustryId: number;
-  newSubIndustryName: string;
+  StockSectorId: number;
+  SectorName: string;
 
-  newIndustryId: number;
-  newIndustryName: string;
+  NewSubIndustryId: number;
+  NewSubIndustryName: string;
 
-  newSubSectorId: number;
-  newSubSectorName: string;
+  NewIndustryId: number;
+  NewIndustryName: string;
 
-  newSectorId: number;
-  newSectorName: string;
+  NewSubSectorId: number;
+  NewSubSectorName: string;
 
-  last: number;
-  prevClosingPrice: number;
+  NewSectorId: number;
+  NewSectorName: string;
 
-  adjustedClosingPrice: number;
-  adjustedOpenPrice: number;
-  adjustedHighPrice: number;
-  adjustedLowPrice: number;
+  Last: number;
+  PrevClosingPrice: number;
 
-  volume: number;
-  frequency: number;
-  value: number;
+  AdjustedClosingPrice: number;
+  AdjustedOpenPrice: number;
+  AdjustedHighPrice: number;
+  AdjustedLowPrice: number;
 
-  oneDay: number;
-  oneWeek: number;
-  oneMonth: number;
-  threeMonth: number;
-  sixMonth: number;
-  oneYear: number;
-  threeYear: number;
-  fiveYear: number;
-  tenYear: number;
+  Volume: number;
+  Frequency: number;
+  Value: number;
 
-  mtd: number;
-  ytd: number;
+  OneDay: number;
+  OneWeek: number;
+  OneMonth: number;
+  ThreeMonth: number;
+  SixMonth: number;
+  OneYear: number;
+  ThreeYear: number;
+  FiveYear: number;
+  TenYear: number | null;
 
-  per: number;
-  pbr: number;
-  capitalization: number;
+  Mtd: number;
+  Ytd: number;
 
-  betaOneYear: number;
-  stdevOneYear: number;
+  Per: number | null;
+  Pbr: number | null;
+  Capitalization: number | null;
 
-  perAnnualized: number;
-  psrAnnualized: number;
-  pcfrAnnualized: number;
+  BetaOneYear: number | null;
+  StdevOneYear: number | null;
 
-  adjustedAnnualHighPrice: number;
-  adjustedAnnualLowPrice: number;
+  PerAnnualized: number | null;
+  PsrAnnualized: number | null;
+  PcfrAnnualized: number | null;
 
-  lastDate: string;
-  lastUpdate: string;
+  AdjustedAnnualHighPrice: number;
+  AdjustedAnnualLowPrice: number;
 
-  roe: number;
+  LastDate: string;
+  LastUpdate: string;
+
+  Roe: number | null;
+
+  FreeFloatPct: number | null;
 }
+
+export type Sector = {
+  Name: string;
+  NameEn: string;
+  Code: string;
+  IndexName: string | null;
+  Description: string;
+  Id: number;
+  DateCreated: string;
+  DateModified: string;
+  IsUpdateDate: boolean;
+};

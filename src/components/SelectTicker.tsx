@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { act, useMemo, useState } from "react";
 import {
   Combobox,
   ComboboxContent,
@@ -10,26 +10,63 @@ import {
   ComboboxList,
 } from "./ui/combobox";
 
-import indonesiaStocks from "../assets/indonesia_stocks.json";
-
-// import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { searchStock } from "@/server/api";
+import { listStock } from "@/server/api";
+import type { Stock } from "@/models/stock";
+import { Loader2 } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { formatDateTime } from "@/lib/date";
+import { Badge } from "./ui/badge";
 
-type IndonesiaStock = {
-  symbol: string;
-  ticker: string;
-  name: string;
+const formatStockLabel = (stock: Stock) => `${stock.Code} (${stock.Name})`;
+
+type StatBoxProps = {
+  label: string;
+  value: React.ReactNode;
 };
 
-const listIndonesiaStocks = indonesiaStocks as IndonesiaStock[];
+function StatBox({ label, value }: StatBoxProps) {
+  return (
+    <div className="rounded-lg border bg-card p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
 
-const formatStockLabel = (stock: IndonesiaStock) =>
-  `${stock.symbol} (${stock.name})`;
+      <div className="mt-1 text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
 
 export function SelectTicker() {
   const [query, setQuery] = useState("");
-  const [activeTicker, setActiveTicker] = useState<IndonesiaStock | null>(null);
+  const [activeTicker, setActiveTicker] = useState<Stock | null>(null);
+
+  const {
+    data: stocks = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["stocks_list"],
+    queryFn: listStock,
+    staleTime: 5 * 100 * 1000,
+  });
+
+  const emptyMessage = (() => {
+    if (isLoading) {
+      return "Loading stocks...";
+    }
+
+    if (query) {
+      return "No ticker found.";
+    }
+
+    return "Type a ticker or company name to search.";
+  })();
 
   const filteredStocks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -42,78 +79,65 @@ export function SelectTicker() {
       return [];
     }
 
-    return listIndonesiaStocks
+    return stocks
       .filter(
         (stock) =>
-          stock.symbol.toLowerCase().includes(q) ||
-          stock.ticker.toLowerCase().includes(q) ||
-          stock.name.toLowerCase().includes(q),
+          stock.Code.toLowerCase().includes(q) ||
+          stock.Name.toLowerCase().includes(q)
       )
       .slice(0, 50);
-  }, [query, activeTicker]);
+  }, [stocks, query, activeTicker]);
 
-  const {
-    data: stock,
-    isLoading,
-    isError,
-    error,
-    isFetching,
-  } = useQuery({
-    queryKey: ["stocks", activeTicker?.symbol],
+  const formatNumber = (value: number | null | undefined) =>
+    value == null ? "-" : value.toLocaleString("id-ID");
 
-    enabled: !!activeTicker?.symbol,
+  const formatPercent = (value: number | null | undefined) =>
+    value == null ? "-" : `${(value * 100).toFixed(2)}%`;
 
-    queryFn: () =>
-      searchStock({
-        keywords: activeTicker!.ticker,
-      }),
-  });
+  const getReturnVariant = (value: number) =>
+    value >= 0 ? "default" : "destructive";
 
   return (
     <div className="space-y-4">
       <Combobox
         items={filteredStocks}
-        value={activeTicker?.symbol ?? ""}
+        value={activeTicker?.Code ?? ""}
         onValueChange={(value) => {
-          const stock =
-            listIndonesiaStocks.find((s) => s.symbol === value) ?? null;
+          const stock = stocks.find((s) => s.Code === value) ?? null;
 
           setActiveTicker(stock);
 
           if (stock) {
             setQuery(formatStockLabel(stock));
           }
-        }}
-      >
-        <ComboboxInput
-          placeholder="Search ticker..."
-          value={query}
-          onChange={(e) => {
-            const value = e.target.value;
+        }}>
+        <div className="relative">
+          <ComboboxInput
+            placeholder="Search ticker..."
+            value={query}
+            onChange={(e) => {
+              const value = e.target.value;
 
-            setQuery(value);
+              setQuery(value);
 
-            if (activeTicker && value !== formatStockLabel(activeTicker)) {
-              setActiveTicker(null);
-            }
-          }}
-        />
+              if (activeTicker && value !== formatStockLabel(activeTicker)) {
+                setActiveTicker(null);
+              }
+            }}
+          />
+        </div>
 
         <ComboboxContent>
-          <ComboboxEmpty>
-            {query
-              ? "No ticker found."
-              : "Type a ticker or company name to search."}
-          </ComboboxEmpty>
+          <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
 
           <ComboboxList>
-            {(item: IndonesiaStock) => (
-              <ComboboxItem key={item.symbol} value={item.symbol}>
+            {(item: Stock) => (
+              <ComboboxItem key={item.Code} value={item.Code}>
                 <div className="flex flex-col">
-                  <span className="font-medium">{item.symbol}</span>
+                  <span className="font-medium">{item.Code}</span>
 
                   <span className="text-xs text-muted-foreground">
-                    {item.name}
+                    {item.Name}
                   </span>
                 </div>
               </ComboboxItem>
@@ -122,94 +146,160 @@ export function SelectTicker() {
         </ComboboxContent>
       </Combobox>
 
+      {isError && (
+        <p className="text-sm text-destructive">{(error as Error).message}</p>
+      )}
+
       {activeTicker && (
-        <div className="rounded-lg border p-4">
-          <h3 className="mb-3 font-semibold">Selected Stock</h3>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-2xl">
+                    {activeTicker.Code}
+                  </CardTitle>
 
-          <div className="space-y-1 text-sm">
-            <div>
-              <strong>Symbol:</strong> {activeTicker.symbol}
-            </div>
-
-            <div>
-              <strong>Ticker:</strong> {activeTicker.ticker}
-            </div>
-
-            <div>
-              <strong>Name:</strong> {activeTicker.name}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-lg bg-muted p-4">
-            <div className="text-xs font-medium text-muted-foreground">
-              Stock Information
-            </div>
-
-            {isLoading && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Loading stock data...
-              </p>
-            )}
-
-            {isError && (
-              <p className="mt-2 text-sm text-destructive">
-                {(error as Error).message}
-              </p>
-            )}
-
-            {!isLoading && !isError && !stock && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Stock data not found.
-              </p>
-            )}
-
-            {stock && (
-              <div className="mt-3 space-y-2 text-sm">
-                <div>
-                  <strong>Code:</strong> {stock.code}
+                  <Badge variant="secondary">
+                    {activeTicker.NewSectorName}
+                  </Badge>
                 </div>
 
-                <div>
-                  <strong>Company:</strong> {stock.name}
-                </div>
-
-                <div>
-                  <strong>Price:</strong> {stock.last.toLocaleString("id-ID")}
-                </div>
-
-                <div>
-                  <strong>PER:</strong> {stock.per.toFixed(2)}
-                </div>
-
-                <div>
-                  <strong>PBR:</strong> {stock.pbr.toFixed(2)}
-                </div>
-
-                <div>
-                  <strong>ROE:</strong> {(stock.roe * 100).toFixed(2)}%
-                </div>
-
-                <div>
-                  <strong>Market Cap:</strong>{" "}
-                  {stock.capitalization.toLocaleString("id-ID")}
-                </div>
-
-                <div>
-                  <strong>1 Year Return:</strong>{" "}
-                  {(stock.oneYear * 100).toFixed(2)}%
-                </div>
-
-                <div>
-                  <strong>YTD:</strong> {(stock.ytd * 100).toFixed(2)}%
-                </div>
-
-                {isFetching && (
-                  <p className="text-xs text-muted-foreground">Refreshing...</p>
-                )}
+                <CardDescription className="mt-1">
+                  {activeTicker.Name}
+                </CardDescription>
               </div>
-            )}
-          </div>
-        </div>
+
+              <div className="text-left md:text-right">
+                <div className="text-3xl font-bold">
+                  {activeTicker.Last.toLocaleString("id-ID")}
+                </div>
+
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Last Update: {formatDateTime(activeTicker.LastUpdate)}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {/* Returns */}
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant={activeTicker.OneDay >= 0 ? "default" : "destructive"}>
+                1D {(activeTicker.OneDay * 100).toFixed(2)}%
+              </Badge>
+
+              <Badge
+                variant={activeTicker.OneWeek >= 0 ? "default" : "destructive"}>
+                1W {(activeTicker.OneWeek * 100).toFixed(2)}%
+              </Badge>
+
+              <Badge
+                variant={
+                  activeTicker.OneMonth >= 0 ? "default" : "destructive"
+                }>
+                1M {(activeTicker.OneMonth * 100).toFixed(2)}%
+              </Badge>
+
+              <Badge
+                variant={activeTicker.Ytd >= 0 ? "default" : "destructive"}>
+                YTD {(activeTicker.Ytd * 100).toFixed(2)}%
+              </Badge>
+            </div>
+
+            {/* Price Information */}
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                Price Information
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <StatBox
+                  label="Open"
+                  value={activeTicker.AdjustedOpenPrice.toLocaleString("id-ID")}
+                />
+
+                <StatBox
+                  label="High"
+                  value={
+                    <span className="text-green-500">
+                      {activeTicker.AdjustedHighPrice.toLocaleString("id-ID")}
+                    </span>
+                  }
+                />
+
+                <StatBox
+                  label="Low"
+                  value={
+                    <span className="text-red-500">
+                      {activeTicker.AdjustedLowPrice.toLocaleString("id-ID")}
+                    </span>
+                  }
+                />
+
+                <StatBox
+                  label="Close"
+                  value={activeTicker.AdjustedClosingPrice.toLocaleString(
+                    "id-ID"
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                Statistics
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <StatBox
+                  label="Volume"
+                  value={activeTicker.Volume.toLocaleString("id-ID")}
+                />
+
+                <StatBox
+                  label="Frequency"
+                  value={activeTicker.Frequency.toLocaleString("id-ID")}
+                />
+
+                <StatBox
+                  label="Value"
+                  value={activeTicker.Value.toLocaleString("id-ID")}
+                />
+
+                <StatBox
+                  label="Market Cap"
+                  value={activeTicker.Capitalization?.toLocaleString("id-ID")}
+                />
+              </div>
+            </div>
+
+            {/* Fundamentals */}
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                Fundamentals
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <StatBox label="PER" value={activeTicker.Per?.toFixed(2)} />
+
+                <StatBox label="PBR" value={activeTicker.Pbr?.toFixed(2)} />
+
+                <StatBox
+                  label="ROE"
+                  value={`${(activeTicker.Roe ?? 0 * 100).toFixed(2)}%`}
+                />
+
+                <StatBox
+                  label="Free Float"
+                  value={`${activeTicker.FreeFloatPct?.toFixed(2)}%`}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
